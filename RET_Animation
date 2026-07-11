@@ -8,7 +8,7 @@ def lcm_denom(q1, q2):
     d2 = fraction(together(q2))[1]
     return lcm(d1, d2)
 
-# --- Parametry a přesné výpočty ---
+# Parametry a přesné výpočty
 k = 5
 alpha_sym = (3 - sqrt(k))/2
 beta_sym = (3 - sqrt(k))/4
@@ -28,7 +28,7 @@ tilde_s_f = float(tilde_s_sym.evalf())
 u_val = int(lcm_denom(simplify(r*alpha_sym*alpha_conj), 
                       simplify(r*alpha_sym*alpha_conj + r*(alpha_sym+alpha_conj) + l_param)))
 
-# --- Výpočet trajektorií ---
+# Výpočet trajektorií
 steps = 300
 z0 = (0, 0)
 traj_ret = [z0]
@@ -47,7 +47,7 @@ offset_base_ret = z0[1] - s_f * z0[0]
 p0_rot = traj_rot[0]
 offset_base_rot = p0_rot[1] - tilde_s_f * p0_rot[0]
 
-# --- Vizualizace ---
+# Vizualizace
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 plt.subplots_adjust(bottom=0.2)
 
@@ -86,7 +86,6 @@ for ax in [ax1, ax2]:
     ax.axvline(a_f, color='red', lw=1.5, alpha=0.4)
     ax.axhline(b_f, xmin=0, xmax=a_f, color='red', lw=1.5, alpha=0.4)
 
-# Společné vizuální prvky
 scat1 = ax1.scatter([], [], c='blue', s=10, alpha=0.5)
 point1, = ax1.plot([], [], 'o', color='purple', ms=8, zorder=10)
 scat2 = ax2.scatter([], [], c='green', s=10, alpha=0.5)
