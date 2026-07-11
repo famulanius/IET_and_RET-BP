@@ -1,0 +1,161 @@
+# Program se pousti v main.py, ktery se nachazi v IET_et_Morphism/IET/main_IET.py
+
+import numpy as np
+import time
+import matplotlib.pyplot as plt
+import sympy as sp
+from sympy import Rational, sqrt, Ge, Lt, Le, Gt, simplify
+
+a = None
+b = None
+pocatecni_bod = None
+iterace = 0
+endpoints = []
+hodnoty = [pocatecni_bod]
+slovo = []
+
+# region: Funkce generujici vymenu 2 resp. 3 intervalu: 
+def presny_zapis(a_cit, a_jmen, b_cit, b_jmen, d):  # Funkce, zajistujici symbolicky (bez numerickych aproximaci v behu programu) zapis prvku z kvadratickeho telesa -> (a/b) + (c/d)*sqrt(d)
+    if a_jmen == 0 or b_jmen == 0 or d < 0:
+        print("NaN")
+        return None
+    return Rational(a_cit, a_jmen) + Rational(b_cit, b_jmen) * sqrt(d) # pyright: ignore[reportOperatorIssue]
+
+def one_midpoint(a):    # Pro 2-i.e.t. mame 2 podintervaly -> 1 bod, ktery je rozdeluje (+2 krajni body 0,1)
+    endpoints = [0, a, 1]
+    print("Krajni body intervalu jsou: ", " | ".join(map(str, endpoints)))
+    print(f"Pocatecni bod je: {pocatecni_bod}\nSlovo je:")
+    return endpoints
+
+def two_midpoints(a, b):    # Pro 3-i.e.t. mame 3 podintervaly -> 2 body, ktere je rozdeluji (+2 krajni body 0,1)
+    endpoints = [0, b, a, 1] if Gt(a, b) else [0, a, b, 1]
+    print("Krajni body intervalu jsou: ", " | ".join(map(str, endpoints)))
+    print(f"Pocatecni bod je: {pocatecni_bod}\nSlovo je:")
+    return endpoints
+
+def two_iet(x, endpoints):  # Samotna 2-i.e.t.
+    if Le(endpoints[0], x) and Lt(x, endpoints[1]):
+        return x + 1 - a
+    elif Le(endpoints[1], x) and Lt(x, endpoints[2]):
+        return x - a
+    return np.nan
+
+def three_iet(x, endpoints):    # Samotna 3-i.e.t.
+    if Le(endpoints[0], x) and Lt(x, endpoints[1]):
+        return x + 1 - endpoints[1]
+    elif Le(endpoints[1], x) and Lt(x, endpoints[2]):
+        return x + 1 - endpoints[1] - endpoints[2]
+    elif Le(endpoints[2], x) and Lt(x, endpoints[3]):
+        return x - endpoints[2]
+    return np.nan
+
+def characteristic_function(x, endpoints):  # Charakteristicka funkce prirazujici dane hodnote zkoumaneho bodu index 0, 1 nebo 2 v zavislosti na tom, v jakem podintervalu bod skonci
+    for i in range(len(endpoints)-1):
+        if Le(endpoints[i], x) and Lt(x, endpoints[i+1]):
+            return i
+    return -1
+
+def assign_letters(index, mode="ternary", colored=False):   # Funkce, prirazujici (obarvena) pismena v zavislosti na tom, kde zrovna je zkoumany bod - dle toho ma index hodnotu 0,1 nebo 2, coby vystup char. fce
+    if mode == "binary":
+        letters = {0: "0", 1: "1"}
+        colors = {0: "\033[91m0\033[0m", 1: "\033[94m1\033[0m"}
+    elif mode == "ternary":
+        letters = {0: "A", 1: "B", 2: "C"}
+        colors = {0: "\033[91mA\033[0m", 1: "\033[92mB\033[0m", 2: "\033[94mC\033[0m"}
+    else:
+        raise ValueError("Invalid mode. Use 'binary' or 'ternary'.")
+
+    return colors.get(index, "Unknown") if colored else letters.get(index, "Unknown")
+
+def generate_word(iet, mode):   # Hlavni funkce, ktera zajistuje samotne generovani; iet = two_iet, three_iet, mode = "binary", "ternary"
+    slovo.append(assign_letters(characteristic_function(hodnoty[-1], endpoints), mode))
+    print(assign_letters(characteristic_function(hodnoty[-1], endpoints), mode, colored=True), end=" ")
+
+    for _ in range(iterace):
+        if characteristic_function(hodnoty[-1], endpoints) == -1:
+            print("\nError - Out of interval [0,1)")
+            break
+        next_point = iet(hodnoty[-1], endpoints)
+        hodnoty.append(next_point)
+        letter = assign_letters(characteristic_function(next_point, endpoints), mode)
+        slovo.append(letter)
+        print(assign_letters(characteristic_function(next_point, endpoints), mode, colored=True), end=" ")
+
+def is_eventually_periodic(slovo):  # Funkce, ktera zkouma, zda se ve slove opakuje nejake podslovo (muze se lisit v zavislosti na delce slova) 
+    for perioda in range(1, len(slovo) // 2 + 1):
+        if all(slovo[i] == slovo[i + perioda] for i in range(len(slovo) - perioda)):
+            print(f"\nSlovo je periodicke s periodou: {perioda}")
+            return True, perioda
+    print("\nSlovo neni periodicke")
+    return False, None
+
+def plot_with_endpoints(iet):
+    x_values = np.linspace(0, 1, 500)
+    y_values = [iet(x, endpoints) for x in x_values]
+    
+    plt.figure(figsize=(8, 8))
+
+    for i in range(len(endpoints) - 1):  
+        x_segment = np.linspace(endpoints[i], endpoints[i + 1], 100, endpoint=False)
+        y_segment = [iet(x, endpoints) for x in x_segment]
+        plt.plot(x_segment, y_segment, color="blue", linewidth=1.5)
+
+    for endpoint in endpoints[1:-1]:
+        left_limit = iet(endpoint - 1e-10, endpoints)
+        right_limit = iet(endpoint + 1e-10, endpoints)
+
+        plt.scatter([endpoint], [left_limit], color="red", edgecolor="black", zorder=3)
+        plt.scatter([endpoint], [right_limit], color="red", edgecolor="black", marker="o", zorder=3)
+
+        plt.axvline(x=endpoint, ymin=0.045, ymax=0.955, color="red", linestyle=":", linewidth=1)
+
+        symbolic_endpoint = sp.simplify(endpoint)
+        
+        plt.text(endpoint + 0.05, -0.09, f'${sp.latex(symbolic_endpoint)}$', ha='center', va='top', fontsize=15, color="red")
+        
+    y_value_of_initial_point = iet(pocatecni_bod, endpoints)
+
+    plt.scatter([pocatecni_bod], [y_value_of_initial_point], color="purple", edgecolor="black", s=80, zorder=3, label="Počáteční bod") # type: ignore
+
+    plt.plot([pocatecni_bod, pocatecni_bod], [0, y_value_of_initial_point], color="purple", linestyle=":", linewidth=1) # type: ignore
+
+    plt.plot([0, pocatecni_bod], [y_value_of_initial_point, y_value_of_initial_point], color="purple", linestyle=":", linewidth=1) # type: ignore
+
+    symbolic_x = sp.simplify(pocatecni_bod)
+    plt.text(pocatecni_bod - 0.05, -0.08, f'${sp.latex(symbolic_x)}$', ha='center', va='top', fontsize=15, color="purple") # type: ignore
+
+    symbolic_y = sp.simplify(y_value_of_initial_point)
+    plt.text(-0.08, y_value_of_initial_point, f'${sp.latex(symbolic_y)}$', ha='right', va='center', fontsize=15, color="purple")
+
+    plt.xticks(np.arange(0, 1.1, 1))
+    plt.yticks(np.arange(0, 1.1, 1))
+
+    plt.minorticks_on()  # Enable minor ticks
+    plt.xticks(np.arange(0, 1.1, 0.1), minor=True)
+    plt.yticks(np.arange(0, 1.1, 0.1), minor=True)
+
+    # **Enable finer grid**
+    plt.grid(True, which="major", linestyle="--", alpha=0.8)
+    plt.grid(True, which="minor", linestyle=":", alpha=0.5)
+
+    plt.axis("equal")
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    if iet == three_iet:
+        val = " tří"
+    elif iet == two_iet:
+        val = " dvou"
+    else: val = ""
+    plt.title(f"Graf výměny{val} intervalů")
+    plt.show()
+
+# endregion
+
+a = presny_zapis(-1, 1, 1, 1, 2)
+b = presny_zapis(-1, 3, 1, 3, 3)
+pocatecni_bod = presny_zapis(1, 1, -1, 2, 2)
+iterace = 500
+endpoints = two_midpoints(a,b) #one_midpoint(a)
+hodnoty = [pocatecni_bod]
+slovo = []
+
