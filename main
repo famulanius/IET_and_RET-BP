@@ -1,7 +1,5 @@
 from Interval_Exchange_Transformation import presny_zapis, one_midpoint, two_midpoints, two_iet, three_iet, characteristic_function, assign_letters, generate_word, is_eventually_periodic, plot_with_endpoints
 
-# region: Vstupni hodnota pro IET: 
-
 # print()
 
 # u = ['0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1']
@@ -29,4 +27,3 @@ print()
 # cust_func6.find_conjugates()
 # cust_func6.matice_morfismu()
 
-# endregion
