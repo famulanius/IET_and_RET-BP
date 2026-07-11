@@ -1,0 +1,119 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+from sympy import sqrt, Rational, simplify, lcm, denom, together, fraction
+
+def lcm_denom(q1, q2):
+    d1 = fraction(together(q1))[1]
+    d2 = fraction(together(q2))[1]
+    return lcm(d1, d2)
+
+# --- Parametry a přesné výpočty ---
+k = 5
+alpha_sym = (3 - sqrt(k))/2
+beta_sym = (3 - sqrt(k))/4
+alpha_conj = (3 + sqrt(k))/2
+l_param = Rational(0, 1)
+
+r = (beta_sym - l_param) / alpha_sym
+s_slope_sym = simplify(alpha_conj * r)
+tilde_s_sym = simplify(l_param + r*(alpha_sym + alpha_conj) - 1)
+theta_vec_sym = (1 - alpha_sym, alpha_sym * (1 - beta_sym))
+
+# Numerické hodnoty
+a_f = float(alpha_sym.evalf())
+b_f = float(beta_sym.evalf())
+s_f = float(s_slope_sym.evalf())
+tilde_s_f = float(tilde_s_sym.evalf())
+u_val = int(lcm_denom(simplify(r*alpha_sym*alpha_conj), 
+                      simplify(r*alpha_sym*alpha_conj + r*(alpha_sym+alpha_conj) + l_param)))
+
+# --- Výpočet trajektorií ---
+steps = 300
+z0 = (0, 0)
+traj_ret = [z0]
+cx, cy = z0
+for _ in range(steps):
+    if cx >= a_f: cx, cy = cx - a_f, cy
+    elif cx < a_f and cy >= b_f: cx, cy = cx + 1 - a_f, cy - b_f
+    else: cx, cy = cx + 1 - a_f, cy + 1 - b_f
+    traj_ret.append((cx, cy))
+
+def phi(p):
+    return (p[0] % 1, (p[1] - (1 - b_f) * p[0]) % 1)
+
+traj_rot = [phi(p) for p in traj_ret]
+offset_base_ret = z0[1] - s_f * z0[0]
+p0_rot = traj_rot[0]
+offset_base_rot = p0_rot[1] - tilde_s_f * p0_rot[0]
+
+# --- Vizualizace ---
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+plt.subplots_adjust(bottom=0.2)
+
+epsilon = 1e-7
+
+# GRAF 1
+ax1.set_title("RET - Výměna obdélníků")
+for i in range(-u_val - 10, u_val + 10):
+    off = i/u_val + offset_base_ret
+    y0, y1 = off, s_f + off
+    if not (max(y0, y1) < 0 or min(y0, y1) > 1):
+        ax1.plot([0, 1], [y0, y1], linestyle=':', color='grey', alpha=0.3, lw=1)
+        x_bounds = {0, a_f, 1}
+        for y_v in [0, b_f, 1]:
+            x_sol = (y_v - off) / s_f
+            if 0 <= x_sol <= 1: x_bounds.add(x_sol)
+        sorted_x = sorted(list(x_bounds))
+        for j in range(len(sorted_x)-1):
+            xs, xe = sorted_x[j], sorted_x[j+1]
+            if (xe - xs) < epsilon: continue
+            xm, ym = (xs + xe) / 2, s_f * ((xs + xe) / 2) + off
+            if 0 <= ym <= 1:
+                rg = 1 if xm >= a_f else (2 if ym >= b_f else 3)
+                ax1.text(xm, ym, f"P{i}R{rg}", fontsize=7, alpha=0.4, 
+                         rotation=np.degrees(np.arctan(s_f)), ha='center')
+
+# GRAF 2
+ax2.set_title(f"Rotace v P o θ = ({theta_vec_sym[0].simplify()}, {theta_vec_sym[1].simplify()})")
+for i in range(-u_val - 10, u_val + 10):
+    off_rot = i/u_val + offset_base_rot
+    y0_r, y1_r = off_rot, tilde_s_f + off_rot
+    if not (max(y0_r, y1_r) < 0 or min(y0_r, y1_r) > 1):
+        ax2.plot([0, 1], [y0_r, y1_r], linestyle=':', color='grey', alpha=0.3, lw=1)
+
+for ax in [ax1, ax2]:
+    ax.axvline(a_f, color='red', lw=1.5, alpha=0.4)
+    ax.axhline(b_f, xmin=0, xmax=a_f, color='red', lw=1.5, alpha=0.4)
+
+# Společné vizuální prvky
+scat1 = ax1.scatter([], [], c='blue', s=10, alpha=0.5)
+point1, = ax1.plot([], [], 'o', color='purple', ms=8, zorder=10)
+scat2 = ax2.scatter([], [], c='green', s=10, alpha=0.5)
+point2, = ax2.plot([], [], 'o', color='purple', ms=8, zorder=10)
+
+for ax in [ax1, ax2]:
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.grid(True, alpha=0.1)
+    ax.set_aspect('equal')
+
+# Slider
+ax_slider = plt.axes([0.2, 0.05, 0.6, 0.03])
+slider = Slider(ax_slider, 'Krok', 0, steps, valinit=0, valstep=1)
+
+def update(val):
+    n = int(slider.val)
+    scat1.set_offsets(np.array(traj_ret[:n+1]))
+    point1.set_data([traj_ret[n][0]], [traj_ret[n][1]])
+    scat2.set_offsets(np.array(traj_rot[:n+1]))
+    point2.set_data([traj_rot[n][0]], [traj_rot[n][1]])
+    fig.canvas.draw_idle()
+
+def on_key(event):
+    if event.key == 'right': slider.set_val(min(slider.val + 1, steps))
+    elif event.key == 'left': slider.set_val(max(slider.val - 1, 0))
+
+fig.canvas.mpl_connect('key_press_event', on_key)
+slider.on_changed(update)
+update(0)
+plt.show()
