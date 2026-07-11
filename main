@@ -1,0 +1,32 @@
+from Interval_Exchange_Transformation import presny_zapis, one_midpoint, two_midpoints, two_iet, three_iet, characteristic_function, assign_letters, generate_word, is_eventually_periodic, plot_with_endpoints
+
+# region: Vstupni hodnota pro IET: 
+
+# print()
+
+# u = ['0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1']
+# pro hodnotu: a = presny_zapis(-1, 1, 1, 1, 2), pocatecni_bod = presny_zapis(1, 1, -1, 2, 2) = 0.293, iterace = 50
+
+# v = ['1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1', '0', '1', '1', '0', '1', '0', '1']
+# pro hodnotu: a = presny_zapis(-1, 1, 1, 1, 2), pocatecni_bod = presny_zapis(2, 1, -1, 1, 2) = 0.586, iterace = 50
+
+generate_word(iet=three_iet, mode="ternary")  # iet = two_iet, mode = "ternary" --- Vstupni parametry se nastavuji v Interval_Exchange_Transformation.py na konci
+plot_with_endpoints(iet=three_iet)
+#print(" ".join(Morph.ternarizace(sigma_01.apply(slovo), sigma_10.apply(slovo))))  # = slovo
+#print(" ".join(Morph.ternarizace(u, v)))
+#print(" ".join(sigma_01.apply(slovo)))
+
+print()
+
+# phi_u = Morph.apply(phi, "011010101101011010110101011010110101011010110101011")
+# psi_v = Morph.apply(psi, "101011010110101011010110101011010110101101010110101")
+# print(Morph.is_amicable(phi_u, psi_v))
+# print("".join(Morph.ternarizace(phi_u, psi_v)))
+# etha = Morph.ternarizace_funkci("etha", phi, psi)
+# w = Morph.apply(etha, "BCACBBCBBCACBCACBBCACBCACBBCBBCACBBC")
+# print(w)
+
+# cust_func6.find_conjugates()
+# cust_func6.matice_morfismu()
+
+# endregion
