@@ -70,7 +70,7 @@ def iterate(x, y, a, b, steps):
         
     return trajectory, regions
 
-# --- Main ---
+# Main
 steps = 1000 
 trajectory, region_ids = iterate(initial_x, initial_y, a, b, steps)
 
