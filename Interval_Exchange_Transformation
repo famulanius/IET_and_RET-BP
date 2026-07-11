@@ -1,4 +1,4 @@
-# Program se pousti v main.py, ktery se nachazi v IET_et_Morphism/IET/main_IET.py
+# Program se pousti v main.py, ktery se nachazi ve slozce stejne urovne
 
 import numpy as np
 import time
