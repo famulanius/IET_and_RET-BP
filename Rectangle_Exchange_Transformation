@@ -1,0 +1,177 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from sympy import sqrt, Rational, Ge, Lt, simplify, lcm, denom
+
+pdf_dir = "Output_PDF"
+os.makedirs(pdf_dir, exist_ok=True)
+
+def presny_zapis(a_cit, a_jmen, b_cit, b_jmen, d):
+    if a_jmen == 0 or b_jmen == 0 or d < 0:
+        print("NaN")
+        return None
+    return Rational(a_cit, a_jmen) + Rational(b_cit, b_jmen) * sqrt(d)
+
+def lcm_denom(q1, q2):
+    if q1 == 0 and q2 != 0:
+        return denom(q2)
+    elif q2 == 0 and q1 != 0:
+        return denom(q1)
+    else: 
+        return lcm(denom(q1), denom(q2))
+
+# Parametry
+# a reprezentuje alpha z definice rotace x_0 - alpha mod 1
+a = presny_zapis(-1, 2, 1, 2, 5)
+b = presny_zapis(-1, 2, 1, 2, 5)
+a_conj = presny_zapis(-1, 2, -1, 2, 5)
+
+l_param = Rational(0, 1)
+r = simplify((b - l_param) / a)
+q1 = simplify(r * a * a_conj)
+q2 = simplify(r * a * a_conj + r * (a + a_conj) + l_param)
+s = simplify(a_conj * r) 
+
+u = lcm_denom(q1, q2)
+
+initial_x = presny_zapis(0, 3, 1, 3, 3)
+initial_y = presny_zapis(0, 3, 1, 3, 3)
+
+# RET (Rectangle Exchange Transformation)
+def rectangle_exchange(x, y, a, b):
+    """
+    Simuluje r(x) = (x - a) mod 1 na ose x.
+    Zároveň provádí příslušný posun na ose y.
+    Vrací: (nové_x, nové_y), ID_aktuálního_regionu
+    """
+    if Ge(x, a):
+        return (x - a, y), 1
+    elif Lt(x, a) and Ge(y, b):
+        return (x + 1 - a, y - b), 2
+    else:
+        return (x + 1 - a, y + 1 - b), 3
+
+def iterate(x, y, a, b, steps):
+    trajectory = []
+    regions = []
+    
+    curr_x, curr_y = x, y
+    for _ in range(steps):
+        # Přidáme aktuální bod do trajektorie
+        trajectory.append((curr_x, curr_y))
+        
+        # Provedeme transformaci
+        # Funkce nám rovnou vrátí i to, ve kterém regionu se bod nacházel PŘED krokem
+        (next_x, next_y), current_region = rectangle_exchange(curr_x, curr_y, a, b)
+        
+        # Uložíme region a posuneme bod
+        regions.append(current_region)
+        curr_x, curr_y = next_x, next_y
+        
+    return trajectory, regions
+
+# --- Main ---
+steps = 1000 
+trajectory, region_ids = iterate(initial_x, initial_y, a, b, steps)
+
+# Kódování trajektorie do symbolického slova
+region_to_letter = {1: 'A', 2: 'B', 3: 'C'}
+symbolic_word = "".join(region_to_letter[r] for r in region_ids)
+
+print(f"--- 2D RET (INDUKUJE x_0 - \u03B1 mod 1) ---")
+print(f"Rotace (parametr a \u2248 \u03B1): {float(a.evalf()):.6f}")
+print(f"Počáteční bod: ({initial_x}, {initial_y}) -> První písmeno: {symbolic_word[0]}")
+print(f"Počet iterací: {steps}")
+print(f"Délka vygenerovaného slova: {len(symbolic_word)}")
+print(f"Symbolické slovo (prvních 100 znaků):\n{symbolic_word[:100]}...")
+
+# Vizualizace
+plt.figure(figsize=(6, 6))
+
+a_val = float(a.evalf())
+b_val = float(b.evalf())
+s_val = float(s.evalf())
+u_int = int(u)
+
+seen_labels = set()
+sublines = []
+epsilon = 1e-7
+offset_base = initial_y - s * initial_x 
+
+for i in range(-u_int - 5, u_int + 5):
+    current_off = Rational(i, u) + offset_base
+    off_val = float(current_off.evalf())
+    
+    x_candidates = {0.0, a_val, 1.0}
+    for y_horiz in [0.0, b_val, 1.0]:
+        x_sol = (y_horiz - off_val) / s_val
+        if 0 <= x_sol <= 1:
+            x_candidates.add(x_sol)
+    
+    sorted_x = sorted(list(x_candidates))
+
+    for j in range(len(sorted_x)-1):
+        x_s, x_e = sorted_x[j], sorted_x[j+1]
+        if (x_e - x_s) < epsilon: continue
+        
+        xm_val = (x_s + x_e) / 2
+        ym_val = s_val * xm_val + off_val
+        
+        if 0 - epsilon <= ym_val <= 1 + epsilon:
+            if xm_val >= a_val: reg = 1
+            elif ym_val >= b_val: reg = 2
+            else: reg = 3
+            
+            label = f"P{i}R{reg}"
+            if label not in seen_labels:
+                sublines.append((xm_val, ym_val, label))
+                seen_labels.add(label)
+    
+    y_at_0, y_at_1 = off_val, s_val + off_val
+    if not (max(y_at_0, y_at_1) < 0 or min(y_at_0, y_at_1) > 1):
+        plt.plot([0, 1], [y_at_0, y_at_1], linestyle='--', color='grey', alpha=0.2, lw=0.8)
+
+if len(sublines) <= 40:
+    for sx, sy, s_lab in sublines:
+        plt.text(sx - 0.05, sy - 0.06, s_lab, fontsize=8, color='black', 
+                 ha='center', va='bottom', rotation=np.degrees(np.arctan(s_val)), 
+                 fontweight='bold', alpha=0.6)
+
+# Vykreslení trajektorie a hranic
+x_vals = [float(p[0].evalf()) for p in trajectory]
+y_vals = [float(p[1].evalf()) for p in trajectory]
+region_colors = {1: 'blue', 2: 'green', 3: 'orange'}
+plt.scatter(x_vals, y_vals, c=[region_colors[r] for r in region_ids], s=15, zorder=5)
+
+# Počáteční bod
+plt.scatter([initial_x], [initial_y], color="purple", edgecolor="black", s=100, zorder=5, label=f"Počáteční bod = ({initial_x}, {initial_y})")
+
+if steps <= 40:
+    for i, (x_pos, y_pos) in enumerate(trajectory):
+        plt.text(float(x_pos), float(y_pos), str(i + 1), fontsize=10, ha='right', va='bottom', color='black')
+
+plt.axvline(a_val, ymin=0, ymax=1, color="red", linestyle="-", linewidth=1)
+plt.axhline(b_val, xmin=0, xmax=a_val, color="red", linestyle="-", linewidth=1)
+
+# Využití vektorizace z Numpy a sjednocení proměnných
+l_val = round(float(offset_base.evalf()), 3)
+x_val = np.linspace(0, 1, 100)
+y_val_1 = s_val * x_val + (l_val + 1)
+y_val_2 = s_val * x_val + (l_val - 1)
+
+plt.plot(x_val, y_val_1, linestyle=':', color='gray')
+plt.plot(x_val, y_val_2, linestyle=':', color='gray')
+
+plt.plot(a_val, 0, marker="o", label=f"α = ({a_val:.3f}, 0)", color="red")
+plt.plot(0, b_val, marker="o", label=f"β = (0, {b_val:.3f})", color="red")
+
+plt.xlim(0, 1)
+plt.ylim(0, 1)
+plt.xlabel("x")
+plt.ylabel("y")
+plt.title("Rectangle Exchange Transformation")
+plt.grid(True)
+plt.legend(fontsize="7", loc='upper left')
+plt.tight_layout()
+plt.savefig(os.path.join(pdf_dir, "Lines_RET.pdf"))
+plt.show()
