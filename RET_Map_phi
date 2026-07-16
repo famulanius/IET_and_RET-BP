@@ -1,0 +1,444 @@
+from tqdm import tqdm
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from sympy import expand, sqrt, Rational, Ge, Lt, simplify, lcm, denom, sqrtdenest
+
+pdf_dir = "Output_PDF"
+os.makedirs(pdf_dir, exist_ok=True)
+
+def presny_zapis(a_cit, a_jmen, b_cit, b_jmen, d):
+    if a_jmen == 0 or b_jmen == 0 or d < 0:
+        return None
+    return Rational(a_cit, a_jmen) + Rational(b_cit, b_jmen) * sqrt(d)
+
+def lcm_denom(q1, q2):
+    if q1 == 0 and q2 != 0:
+        return denom(q2)
+    elif q2 == 0 and q1 != 0:
+        return denom(q1)
+    else: return lcm(denom(q1), denom(q2))
+
+# --- Parametry ---
+
+a = presny_zapis(0, 2, 1, 3, 2)
+b = presny_zapis(0, 4, 1, 2, 2)
+a_conj = presny_zapis(0, 2, -1, 3, 2)
+b_conj = presny_zapis(0, 4, -1, 2, 2)
+l_param = Rational(0, 1)
+
+r = simplify((b - l_param) / a)
+q_1 = simplify(r * a * a_conj)
+q_2 = simplify(r * a * a_conj + r * (a + a_conj) + l_param)
+s = simplify(a_conj * r)
+tilde_s = l_param - 1 + r * simplify(a + a_conj)
+
+u = lcm_denom(q_1, q_2)
+
+initial_x = presny_zapis(0, 3, 0, 1, 0)
+initial_y = presny_zapis(0, 3, 0, 1, 0)
+
+# Převod na float
+a_f = float(a.evalf())
+b_f = float(b.evalf())
+s_f = float(s.evalf())
+tilde_s_f = float(tilde_s.evalf())
+u_int = int(u)
+x0_f = float(initial_x.evalf())
+y0_f = float(initial_y.evalf())
+
+theta_0 = 1 - a
+theta_1 = a * (1 - b)
+theta = (theta_0, theta_1)
+norm_kvadrat = theta[0]**2 + theta[1]**2
+norm_simplified = simplify(expand(norm_kvadrat))
+sqrt_norm_theta = sqrt(norm_simplified)
+norm_theta = simplify(sqrtdenest(sqrt_norm_theta))
+
+# --- RET Funkce ---
+def rectangle_exchange(x, y, a, b):
+    if Ge(x, a):
+        return (x - a, y), 1
+    elif Lt(x, a) and Ge(y, b):
+        return (x + 1 - a, y - b), 2
+    else:
+        return (x + 1 - a, y + 1 - b), 3
+
+def iterate(x, y, a, b, steps):
+    trajectory, regions = [(x, y)], []
+    if Ge(x, a):
+        regions.append(1)
+    elif Lt(x, a) and Ge(y, b):
+        regions.append(2)
+    else:
+        regions.append(3)
+
+    curr_x, curr_y = x, y
+    for _ in tqdm(range(steps), desc="Iterace fázové trajektorie"):
+        (curr_x, curr_y), region = rectangle_exchange(curr_x, curr_y, a, b)
+        trajectory.append((curr_x, curr_y))
+        if Ge(curr_x, a):
+            regions.append(1)
+        elif Lt(curr_x, a) and Ge(curr_y, b):
+            regions.append(2)
+        else:
+            regions.append(3)
+    return trajectory, regions
+
+def phi_transform(x, y):
+    return x, y - (1 - b_f) * x
+
+def draw_grid(ax, lines_count=10, x_min=-2, x_max=2, samples=500,
+              color='gray', linestyle=':', linewidth=1, alpha=0.3, transform=None):
+    vals = np.linspace(x_min, x_max, 4 * lines_count + 1)
+    t = np.linspace(x_min, x_max, samples)
+
+    for v in vals:
+        x_orig = t
+        y_orig = np.full_like(t, v)
+        if transform is not None:
+            x_plot, y_plot = transform(x_orig, y_orig)
+        else:
+            x_plot, y_plot = x_orig, y_orig
+        ax.plot(x_plot, y_plot, color=color, linestyle=linestyle,
+                linewidth=linewidth, alpha=alpha)
+
+    for v in vals:
+        x_orig = np.full_like(t, v)
+        y_orig = t
+        if transform is not None:
+            x_plot, y_plot = transform(x_orig, y_orig)
+        else:
+            x_plot, y_plot = x_orig, y_orig
+        ax.plot(x_plot, y_plot, color=color, linestyle=linestyle,
+                linewidth=linewidth, alpha=alpha)
+
+def draw_transformed_grid(ax, lines_count=10, alpha=0.4):
+    vals = np.linspace(0, 1, 11)
+    t = np.linspace(0, 1, 500)
+    
+    for v in vals:
+        # Původně horizontální čáry
+        x_orig = t
+        y_trans = (v - (1 - b_f) * x_orig) % 1.0
+        # Odstranění spojnic při přetečení přes hranu (skok o více než 0.5)
+        jumps = np.abs(np.diff(y_trans)) > 0.5
+        y_trans[np.insert(jumps, 0, False)] = np.nan
+        ax.plot(x_orig, y_trans, color='gray', linestyle=':', linewidth=1, alpha=alpha)
+
+        # Původně vertikální čáry
+        x_trans = np.full_like(t, v)
+        y_trans_v = (t - (1 - b_f) * x_trans) % 1.0
+        jumps_v = np.abs(np.diff(y_trans_v)) > 0.5
+        y_trans_v[np.insert(jumps_v, 0, False)] = np.nan
+        ax.plot(x_trans, y_trans_v, color='gray', linestyle=':', linewidth=1, alpha=alpha)
+
+# Výpočet
+steps = 3000
+trajectory, region_ids = iterate(initial_x, initial_y, a, b, steps)
+offset_base = initial_y - s * initial_x
+epsilon = 1e-9
+
+def vypocet_presnych_delek(s, tilde_s, a, b, offset_base, u, u_int):
+    l_1 = []
+    l_2 = []
+    delka_nasobic_g1 = simplify(sqrt(1 + s**2))
+    delka_nasobic_g2 = simplify(sqrt(1 + tilde_s**2))
+    
+    celkova_delka_g1 = Rational(0, 1)
+    celkova_delka_g2 = Rational(0, 1)
+    delky_podle_regionu = {1: [Rational(0, 1), Rational(0, 1)], 
+                           2: [Rational(0, 1), Rational(0, 1)], 
+                           3: [Rational(0, 1), Rational(0, 1)]} 
+    
+    s_f = float(s.evalf())
+    a_f = float(a.evalf())
+    b_f = float(b.evalf())
+    
+    for i in tqdm(range(-u_int - 50, u_int + 50), desc="Výpočet analytických délek"):
+        current_off = Rational(i, u) + offset_base
+        off_f = float(current_off.evalf())
+        
+        exact_x_cands = [Rational(0, 1), a, Rational(1, 1)]
+        if s != 0:
+            for y_edge_sym in [Rational(0, 1), b, Rational(1, 1)]:
+                exact_x_cands.append(simplify((y_edge_sym - current_off) / s))
+                
+        valid_exact_x = []
+        for cx in exact_x_cands:
+            val = float(cx.evalf())
+            if -1e-7 <= val <= 1.0 + 1e-7:
+                valid_exact_x.append(cx)
+                
+        valid_exact_x.sort(key=lambda cx: float(cx.evalf()))
+        
+        # Odstranění duplicit
+        unique_exact_x = []
+        for cx in valid_exact_x:
+            if not unique_exact_x or abs(float(cx.evalf()) - float(unique_exact_x[-1].evalf())) > 1e-9:
+                unique_exact_x.append(cx)
+                
+        # Samotný výpočet
+        for j in range(len(unique_exact_x) - 1):
+            x_s_sym = unique_exact_x[j]
+            x_e_sym = unique_exact_x[j + 1]
+            
+            x_mid_sym = (x_s_sym + x_e_sym) / 2
+            x_mid_f = float(x_mid_sym.evalf())
+            y_mid_f = s_f * x_mid_f + off_f
+            
+            if y_mid_f < -1e-9 or y_mid_f > 1.0 + 1e-9:
+                continue
+                
+            if x_mid_f >= a_f: reg = 1
+            elif y_mid_f >= b_f: reg = 2
+            else: reg = 3
+
+            dx_sym = simplify(x_e_sym - x_s_sym)
+            
+            l1 = simplify(dx_sym * delka_nasobic_g1)
+            l_1.append(l1)
+            l2 = simplify(dx_sym * delka_nasobic_g2)
+            l_2.append(l2)
+            
+            celkova_delka_g1 = simplify(celkova_delka_g1 + l1)
+            celkova_delka_g2 = simplify(celkova_delka_g2 + l2)
+            delky_podle_regionu[reg][0] = simplify(delky_podle_regionu[reg][0] + l1)
+            delky_podle_regionu[reg][1] = simplify(delky_podle_regionu[reg][1] + l2)
+    """        
+    print("\n--- Délky jednotlivých úseků v Grafu 1 ---")
+    print(l_1)
+    print("\n--- Délky jednotlivých úseků v Grafu 2 ---")
+    print(l_2)
+    print()
+    """
+    
+    return celkova_delka_g1, celkova_delka_g2, delky_podle_regionu
+
+celk_g1, celk_g2, region_delky = vypocet_presnych_delek(s, tilde_s, a, b, offset_base, u, u_int)
+
+print()
+print("--- PŘESNÉ DÉLKY ---")
+print(f"Celková délka úseček v Grafu 1 (Orbita): {celk_g1}")
+print(f"Celková délka úseček v Grafu 2 (Množina P): {celk_g2}\n")
+print(f"theta = {theta} = {(simplify(theta_0), simplify(theta_1))} = ({float(theta_0.evalf())}, {float(theta_1.evalf())})")
+print(f"|theta| = {norm_theta} = {float(norm_theta.evalf())}")
+print(f"|theta|/|P| = {norm_theta / celk_g2} = {simplify(norm_theta / celk_g2)} = {float((norm_theta / celk_g2).evalf())}\n")
+
+# Vykreslení
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+# GRAF 1: Trajektorie
+#ax1.set_title("Orbita $S(z_0)$")
+draw_grid(ax1, lines_count=10, alpha=0.4)
+
+sublines = []
+seen_labels = set()
+
+for i in range(-u_int - 50, u_int + 50):
+    current_off = Rational(i, u) + offset_base
+    off_f = float(current_off.evalf())
+
+    x_candidates = {0.0, a_f, 1.0}
+    
+    # 1. Průsečíky s vnějšími horizontálními okraji (y=0, y=1) hledáme pro celé x
+    for y_edge in [0.0, 1.0]:
+        x_sol = (y_edge - off_f) / s_f if abs(s_f) > epsilon else None
+        if x_sol is not None and 0.0 <= x_sol <= 1.0:
+            x_candidates.add(float(x_sol))
+
+    # 2. Průsečík s hranicí y=beta přidáme pouze pokud leží vlevo od alpha (nebo na ní)
+    x_sol_beta = (b_f - off_f) / s_f if abs(s_f) > epsilon else None
+    if x_sol_beta is not None and 0.0 <= x_sol_beta <= a_f + epsilon:
+        x_candidates.add(float(x_sol_beta))
+
+    sorted_x = sorted(x_candidates)
+    for j in range(len(sorted_x) - 1):
+        x_s, x_e = sorted_x[j], sorted_x[j + 1]
+        if x_e - x_s < epsilon:
+            continue
+
+        x_mid = 0.5 * (x_s + x_e)
+        y_mid = s_f * x_mid + off_f
+        if y_mid < -epsilon or y_mid > 1 + epsilon:
+            continue
+
+        if x_mid >= a_f:
+            reg = 1
+            color = 'blue'
+        elif y_mid >= b_f:
+            reg = 2
+            color = 'green'
+        else:
+            reg = 3
+            color = 'orange'
+
+        label = f"P{i}R{reg}"
+        if label in seen_labels:
+            continue
+        seen_labels.add(label)
+
+        x_seg = np.linspace(x_s, x_e, 120)
+        y_seg = s_f * x_seg + off_f
+        x_seg_t, y_seg_t = phi_transform(x_seg, y_seg)
+
+        valid_t = (x_seg_t >= 0) & (x_seg_t <= 1) & (y_seg_t >= 0) & (y_seg_t <= 1)
+        idx_t = np.where(valid_t)[0]
+        if idx_t.size > 0:
+            idx_t = idx_t[len(idx_t) // 2]
+            x_label_t = float(x_seg_t[idx_t])
+            y_label_t = float(y_seg_t[idx_t])
+        else:
+            x_label_t = None
+            y_label_t = None
+
+        sublines.append({
+            'label': label,
+            'color': color,
+            'x_seg': x_seg,
+            'y_seg': y_seg,
+            'x_seg_t': x_seg_t,
+            'y_seg_t': y_seg_t,
+            'x_mid': x_mid,
+            'y_mid': y_mid,
+            'x_label_t': x_label_t,
+            'y_label_t': y_label_t,
+        })
+
+for sub in sublines:
+    ax1.plot(sub['x_seg'], sub['y_seg'], color=sub['color'], lw=2.0, alpha=0.9, zorder=3)
+    ax1.annotate(sub['label'],
+                 xy=(sub['x_mid'], sub['y_mid']),
+                 xytext=(5, 5),
+                 textcoords='offset points',
+                 fontsize=10,
+                 color=sub['color'],
+                 ha='left',
+                 va='bottom',
+                 alpha=0.85)
+
+for i in range(-u_int - 50, u_int + 50):
+    current_off = Rational(i, u) + offset_base
+    off_f = float(current_off.evalf())
+    y_at_0, y_at_1 = off_f, s_f + off_f
+    if not (max(y_at_0, y_at_1) < 0 or min(y_at_0, y_at_1) > 1):
+        ax1.plot([0, 1], [y_at_0, y_at_1], linestyle='--', color='grey', alpha=0.5, lw=0.8)
+
+x_vals = [float(p[0].evalf()) for p in trajectory]
+y_vals = [float(p[1].evalf()) for p in trajectory]
+region_colors = {1: 'blue', 2: 'green', 3: 'orange'}
+ax1.scatter(x_vals, y_vals, c=[region_colors[r] for r in region_ids], s=5, zorder=5)
+
+ax1.scatter([x0_f], [y0_f], color="purple", edgecolor="black", s=100, zorder=6,
+            label=f"Initial point = ({simplify(initial_x)}, {simplify(initial_y)})")
+
+ax1.plot([], [], label=r"$\alpha$ " "=" f" ({a}, 0)", color="red")
+ax1.plot([], [], label=r"$\beta$ " "=" f" (0, {b})", color="red")
+ax1.plot([], [], color='blue', lw=3, label="Region 1")
+ax1.plot([], [], color='green', lw=3, label="Region 2")
+ax1.plot([], [], color='orange', lw=3, label="Region 3")
+ax1.axvline(a_f, color="red", linestyle="-", linewidth=1, alpha=0.5)
+ax1.axhline(b_f, xmax=a_f, color="red", linestyle="-", linewidth=1, alpha=0.5)
+
+ax1.set_xlim(0, 1)
+ax1.set_ylim(0, 1)
+ax1.set_xticks(np.linspace(0, 1, 11))
+ax1.set_yticks(np.linspace(0, 1, 11))
+ax1.grid(False)
+ax1.legend(loc='lower right', fontsize='small', framealpha=0.5)
+
+
+# GRAF 2: Množina P
+x_range = np.linspace(0, 1, 1500)
+base_constant = y0_f - tilde_s_f * x0_f
+
+for sub in sublines:
+    x_t = sub['x_mid']
+    y_t = (sub['y_mid'] - (1 - b_f) * sub['x_mid']) % 1.0
+    
+    ax2.annotate(r"$\phi(" + sub['label'] + r")$",
+                 xy=(x_t, y_t),
+                 xytext=(5, 5), textcoords='offset points',
+                 fontsize=10, color=sub['color'], alpha=0.85, fontweight='bold')
+
+y_alpha_orig = np.linspace(0, 1, 500)
+x_alpha_orig = np.full_like(y_alpha_orig, a_f)
+y_alpha_trans = (y_alpha_orig - (1 - b_f) * x_alpha_orig) % 1.0
+jumps_alpha = np.abs(np.diff(y_alpha_trans)) > 0.5
+y_alpha_trans[np.insert(jumps_alpha, 0, False)] = np.nan
+ax2.plot(x_alpha_orig, y_alpha_trans, color="red", linestyle="-", linewidth=1.5, alpha=0.6)
+
+x_beta_orig = np.linspace(0, a_f, 500)
+y_beta_orig = np.full_like(x_beta_orig, b_f)
+y_beta_trans = (y_beta_orig - (1 - b_f) * x_beta_orig) % 1.0
+jumps_beta = np.abs(np.diff(y_beta_trans)) > 0.5
+y_beta_trans[np.insert(jumps_beta, 0, False)] = np.nan
+ax2.plot(x_beta_orig, y_beta_trans, color="red", linestyle="-", linewidth=1.5, alpha=0.6)
+
+ax2.scatter([x0_f], [y0_f], color="purple", edgecolor="black", s=100, zorder=6, label=f"Initial point = ({simplify(initial_x)}, {simplify(initial_y)})")
+
+t_bound = np.linspace(0, 1, 500)
+
+# Horní hrana (y=1 transformovaná na torus)
+y_bound_h = (1 - (1 - b_f) * t_bound) % 1.0
+jumps_bound = np.abs(np.diff(y_bound_h)) > 0.5
+y_bound_h[np.insert(jumps_bound, 0, False)] = np.nan
+ax2.plot(t_bound, y_bound_h, color="black", linestyle="--", linewidth=2.5, alpha=0.8)
+
+# Levá hrana x=0 - kreslíme ji celou
+y_bound_v = t_bound % 1.0
+ax2.plot(np.zeros_like(t_bound), y_bound_v, color="black", linestyle="--", linewidth=2.5, alpha=0.8)
+
+# Pravá hrana x=1 - začíná až od pravého kraje transformované horní hranice
+# Její horní kraj je v y = b_f
+t_bound_right = np.linspace(0, b_f, 200)
+ax2.plot(np.ones_like(t_bound_right), t_bound_right, color="black", linestyle="--", linewidth=2.5, alpha=0.8)
+
+for i in tqdm(range(u_int), desc="Vykreslování grafu 2"):
+    shift = i / u_int
+    for k in range(-10, 10):
+        y_p = tilde_s_f * x_range + base_constant + shift + k
+        mask_visible = (y_p >= -1e-9) & (y_p <= 1 + 1e-9)
+        
+        if np.any(mask_visible):
+            # Hodnota v "původním" světě před transformací phi
+            y_src_raw = y_p + (1 - b_f) * x_range
+            y_src = y_src_raw % 1.0
+            
+            # Výpočet transformovaných geometrických hranic pro dané x
+            transformovana_horni_hranice = 1.0 - (1.0 - b_f) * x_range
+            transformovana_beta = b_f - (1.0 - b_f) * x_range
+
+            # Region 1 (Modrá): Větší nebo rovno alpha
+            m1 = mask_visible & (x_range >= a_f - 1e-9)
+
+            # Region 2 (Zelená):
+            # 1. Menší než alpha (x_range < a_f)
+            # 2. Pod transformovanou horní hranicí (y_p <= transformovana_horni_hranice)
+            # 3. Větší než transformovaná beta (y_p >= transformovana_beta)
+            m2 = mask_visible & (x_range < a_f - 1e-9) & (y_p <= transformovana_horni_hranice + 1e-9) & (y_p >= transformovana_beta - 1e-9)
+
+            # Region 3 (Oranžová): Zbytek úseček vlevo od alpha, které nejsou zelené
+            m3 = mask_visible & (x_range < a_f - 1e-9) & ~m2
+
+            if np.any(m1): ax2.plot(x_range[m1], y_p[m1], color='blue', lw=3, zorder=2)
+            if np.any(m2): ax2.plot(x_range[m2], y_p[m2], color='green', lw=3, zorder=2)
+            if np.any(m3): ax2.plot(x_range[m3], y_p[m3], color='orange', lw=3, zorder=1)
+
+draw_transformed_grid(ax2, lines_count=10)
+
+ax2.set_xlim(0, 1); ax2.set_ylim(0, 1)
+ax2.set_xticks(np.linspace(0, 1, 11))
+ax2.set_yticks(np.linspace(0, 1, 11))
+
+ax2.plot([], [], label=r"$\alpha$ " "=" f" ({a}, 0)", color="red")
+ax2.plot([], [], label=r"$\beta$ " "=" f" (0, {b})", color="red")
+ax2.plot([], [], color='blue', lw=3, label="Region 1")
+ax2.plot([], [], color='green', lw=3, label="Region 2")
+ax2.plot([], [], color='orange', lw=3, label="Region 3")
+ax2.plot([], [], color='black', linestyle="--", linewidth=2.5, label="Transformed border")
+ax2.legend(loc='lower right', fontsize='small', framealpha=0.5)
+
+plt.savefig(os.path.join(pdf_dir, "RET_a_Mnozina_P6.pdf"))
+plt.tight_layout()
+plt.show()
