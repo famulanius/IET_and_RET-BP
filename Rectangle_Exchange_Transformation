@@ -37,7 +37,7 @@ u = lcm_denom(q1, q2)
 initial_x = presny_zapis(0, 3, 1, 3, 3)
 initial_y = presny_zapis(0, 3, 1, 3, 3)
 
-# RET (Rectangle Exchange Transformation)
+# RET
 def rectangle_exchange(x, y, a, b):
     """
     Simuluje r(x) = (x - a) mod 1 na ose x.
@@ -61,7 +61,7 @@ def iterate(x, y, a, b, steps):
         trajectory.append((curr_x, curr_y))
         
         # Provedeme transformaci
-        # Funkce nám rovnou vrátí i to, ve kterém regionu se bod nacházel PŘED krokem
+        # Funkce nam vrati i index regionu, ve kterem se bod nachazel pred zobrazenim
         (next_x, next_y), current_region = rectangle_exchange(curr_x, curr_y, a, b)
         
         # Uložíme region a posuneme bod
