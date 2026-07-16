@@ -79,7 +79,6 @@ region_to_letter = {1: 'A', 2: 'B', 3: 'C'}
 symbolic_word = "".join(region_to_letter[r] for r in region_ids)
 
 print(f"--- RET ---")
-print(f"Rotace (parametr a \u2248 \u03B1): {float(a.evalf()):.6f}")
 print(f"Počáteční bod: ({initial_x}, {initial_y}) -> První písmeno: {symbolic_word[0]}")
 print(f"Počet iterací: {steps}")
 print(f"Délka vygenerovaného slova: {len(symbolic_word)}")
