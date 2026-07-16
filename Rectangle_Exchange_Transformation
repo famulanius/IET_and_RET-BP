@@ -83,7 +83,7 @@ print(f"Rotace (parametr a \u2248 \u03B1): {float(a.evalf()):.6f}")
 print(f"Počáteční bod: ({initial_x}, {initial_y}) -> První písmeno: {symbolic_word[0]}")
 print(f"Počet iterací: {steps}")
 print(f"Délka vygenerovaného slova: {len(symbolic_word)}")
-print(f"Symbolické slovo (prvních 100 znaků):\n{symbolic_word[:100]}...")
+print(f"Symbolické slovo (prvních několik písmen slova):\n{symbolic_word[:100]}...")
 
 # Vizualizace
 plt.figure(figsize=(6, 6))
