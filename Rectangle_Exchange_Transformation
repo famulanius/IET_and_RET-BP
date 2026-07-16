@@ -129,7 +129,7 @@ for i in range(-u_int - 5, u_int + 5):
     
     y_at_0, y_at_1 = off_val, s_val + off_val
     if not (max(y_at_0, y_at_1) < 0 or min(y_at_0, y_at_1) > 1):
-        plt.plot([0, 1], [y_at_0, y_at_1], linestyle='--', color='grey', alpha=0.2, lw=0.8)
+        plt.plot([0, 1], [y_at_0, y_at_1], linestyle='--', color='grey', alpha=0.6)
 
 if len(sublines) <= 40:
     for sx, sy, s_lab in sublines:
@@ -159,8 +159,8 @@ x_val = np.linspace(0, 1, 100)
 y_val_1 = s_val * x_val + (l_val + 1)
 y_val_2 = s_val * x_val + (l_val - 1)
 
-plt.plot(x_val, y_val_1, linestyle=':', color='gray')
-plt.plot(x_val, y_val_2, linestyle=':', color='gray')
+plt.plot(x_val, y_val_1, linestyle=':', color='grey', alpha=0.6)
+plt.plot(x_val, y_val_2, linestyle=':', color='grey', alpha=0.6)
 
 plt.plot(a_val, 0, marker="o", label=f"α = ({a_val:.3f}, 0)", color="red")
 plt.plot(0, b_val, marker="o", label=f"β = (0, {b_val:.3f})", color="red")
