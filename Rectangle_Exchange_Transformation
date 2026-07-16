@@ -122,7 +122,7 @@ for i in range(-u_int - 5, u_int + 5):
             elif ym_val >= b_val: reg = 2
             else: reg = 3
             
-            label = f"P{i}R{reg}"
+            label = f"P({i})R({reg})"
             if label not in seen_labels:
                 sublines.append((xm_val, ym_val, label))
                 seen_labels.add(label)
